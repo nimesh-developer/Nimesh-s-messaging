@@ -1,0 +1,85 @@
+{
+  "lanIdCounter": 3,
+  "users": {
+    "nimesh": {
+      "username": "Nimesh",
+      "passwordHash": "16d2a4de40bbb9f57783fe7aa4a954c9c12075db08f7968a4e01a3a05c09f295",
+      "lanId": "LAN0000",
+      "color": "#3b82f6",
+      "createdAt": "2026-09-13T12:43:20.899574+00:00"
+    },
+    "nimesh+2": {
+      "username": "NIMESH+2",
+      "passwordHash": "3aef4e733e00c184164c52c26237c1479dc0146ef5cc655609c5c7c4c541d1f4",
+      "lanId": "LAN0001",
+      "color": "#10b981",
+      "createdAt": "2026-09-13T12:43:50.509009+00:00"
+    },
+    "nimesh+2234234": {
+      "username": "NIMESH+2234234",
+      "passwordHash": "9206d54e769ea4aa58337a12da4b3ae761bc0caf2a06faee4a137e4d0e996d5a",
+      "lanId": "LAN0002",
+      "color": "#8b5cf6",
+      "createdAt": "2026-09-13T12:44:25.849910+00:00"
+    }
+  },
+  "groups": {
+    "group_1789303476155_b488": {
+      "id": "group_1789303476155_b488",
+      "name": "Team",
+      "members": [
+        "LAN0001",
+        "LAN0002"
+      ],
+      "createdBy": "LAN0001",
+      "admins": [
+        "LAN0001"
+      ],
+      "disallowedFileTypes": [],
+      "createdAt": "2026-09-13T12:44:36.155545+00:00"
+    }
+  },
+  "messages": {
+    "general": [
+      {
+        "id": "sys_1789303400903_5aeef",
+        "roomId": "general",
+        "sender": {
+          "lanId": "SYSTEM",
+          "username": "System",
+          "color": "#64748b"
+        },
+        "content": "Nimesh (LAN0000) registered & connected to LAN Chat.",
+        "timestamp": "2026-09-13T12:43:20.903688+00:00",
+        "isSystem": true
+      },
+      {
+        "id": "sys_1789303430514_4f0e6",
+        "roomId": "general",
+        "sender": {
+          "lanId": "SYSTEM",
+          "username": "System",
+          "color": "#64748b"
+        },
+        "content": "NIMESH+2 (LAN0001) registered & connected to LAN Chat.",
+        "timestamp": "2026-09-13T12:43:50.515085+00:00",
+        "isSystem": true
+      },
+      {
+        "id": "sys_1789303465857_75e11",
+        "roomId": "general",
+        "sender": {
+          "lanId": "SYSTEM",
+          "username": "System",
+          "color": "#64748b"
+        },
+        "content": "NIMESH+2234234 (LAN0002) registered & connected to LAN Chat.",
+        "timestamp": "2026-09-13T12:44:25.859037+00:00",
+        "isSystem": true
+      }
+    ]
+  },
+  "bannedLanIds": [],
+  "bannedIps": [],
+  "auditLogs": []
+}

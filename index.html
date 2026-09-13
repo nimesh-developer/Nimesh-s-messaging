@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LAN Mesh Chat - Hyperconnected Local Messaging</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <div id="app" class="app-container">
+    
+    <!-- TOP NAVIGATION BAR -->
+    <header class="top-navbar">
+      <div class="brand-area">
+        <button class="btn-icon mobile-menu-btn" id="btnMobileMenu" title="Toggle Sidebar">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+        <div class="brand-logo">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+            <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+            <line x1="6" y1="6" x2="6.01" y2="6"></line>
+            <line x1="6" y1="18" x2="6.01" y2="18"></line>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>LAN Mesh Chat</h1>
+          <span class="lan-status-badge">
+            <span class="status-dot pulse"></span>
+            LAN Active
+          </span>
+        </div>
+      </div>
+
+      <!-- LAN IP HOST DISPLAY & COPY TOOL -->
+      <div class="lan-info-card" id="lanInfoCard" title="Share this address with other computers on your local network">
+        <div class="lan-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+          </svg>
+        </div>
+        <div class="lan-address-group">
+          <span class="lan-label">HOST LAN ADDRESS</span>
+          <span class="lan-url" id="lanAddressText">Loading LAN IP...</span>
+        </div>
+        <button class="btn-icon" id="btnCopyLanUrl" title="Copy LAN URL to Clipboard">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+        </button>
+      </div>
+
+      <!-- DEVICE MODE SWITCHER & THEME SWITCHER & CURRENT USER PROFILE & LOGOUT WIDGET -->
+      <div class="user-header-actions">
+        <button class="btn-secondary btn-sm text-danger" id="btnAdminPanel" style="display: none;" title="Localhost Admin Controls">
+          ⚙️ Admin
+        </button>
+        <button class="btn-secondary btn-sm" id="btnThemeSwitcher" title="Cycle Themes (Dark, Light, Cyberpunk)">
+          <span id="themeBadgeIcon">🌙</span>
+        </button>
+        <button class="btn-secondary btn-sm" id="btnChangeDeviceMode" title="Switch Device Mode (Phone / Laptop)">
+          <span id="deviceModeBadgeIcon">📱</span>
+          <span id="deviceModeBadgeText">Phone Mode</span>
+        </button>
+        <div class="user-profile-badge" id="btnEditProfile">
+          <div class="avatar" id="myAvatar">--</div>
+          <div class="profile-info">
+            <span class="username" id="myUsernameDisplay">Loading...</span>
+            <span class="lan-id" id="myLanIdDisplay">LAN----</span>
+          </div>
+        </div>
+        <button class="btn-icon text-danger" id="btnLogout" title="Logout / Switch Account">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- MAIN INTERFACE BODY -->
+    <div class="main-body">
+      
+      <!-- SIDEBAR -->
+      <aside class="sidebar">
+        
+        <!-- QUICK GROUP / DIRECT ID LAUNCHER -->
+        <div class="sidebar-section group-creator-card">
+          <div class="section-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+            <span>Groups & Chats</span>
+          </div>
+          <button type="button" class="btn-primary btn-sm btn-block" id="btnOpenGroupModal" style="margin-top: 8px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            Create New Group
+          </button>
+        </div>
+
+        <!-- CHANNELS LIST -->
+        <div class="sidebar-section">
+          <div class="section-title">CHANNELS</div>
+          <ul class="nav-list" id="channelsList">
+            <li class="nav-item active" data-room-id="general">
+              <span class="hashtag">#</span>
+              <span class="nav-label">general</span>
+              <span class="unread-badge" id="unread-general" style="display:none">0</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- GROUPS LIST -->
+        <div class="sidebar-section">
+          <div class="section-title">
+            <span>GROUPS</span>
+            <span class="badge" id="groupsCount">0</span>
+          </div>
+          <ul class="nav-list" id="groupsList">
+            <!-- Dynamic groups populated here -->
+          </ul>
+        </div>
+
+        <!-- ONLINE LAN USERS SELECTOR LIST -->
+        <div class="sidebar-section flex-1">
+          <div class="section-title">
+            <span>LAN USERS SELECTOR</span>
+            <span class="badge" id="onlineCount">0</span>
+          </div>
+          <div class="user-search-box">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="inputFilterUsers" placeholder="Search by name or LAN ID..." />
+          </div>
+          <ul class="user-list" id="usersList">
+            <!-- Dynamic LAN users populated here -->
+          </ul>
+        </div>
+
+      </aside>
+
+      <!-- MAIN CHAT VIEWPORT -->
+      <main class="chat-viewport">
+        
+        <!-- ROOM HEADER -->
+        <div class="chat-header">
+          <div class="room-title-group">
+            <div class="room-icon" id="currentRoomIcon">#</div>
+            <div>
+              <h2 class="room-name" id="currentRoomName">general</h2>
+              <p class="room-subtitle" id="currentRoomSubtitle">Public broadcast channel for all connected LAN devices</p>
+            </div>
+          </div>
+          <div class="header-actions">
+            <div class="chat-search-box" style="display:flex; align-items:center; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:6px; padding:4px 8px;">
+              <input type="text" id="inputSearchChat" placeholder="Search in chat..." style="background:transparent; border:none; color:var(--text-main); font-size:0.8rem; outline:none;" />
+            </div>
+            <button class="btn-secondary btn-sm" id="btnGroupSettings" style="display: none;" title="Group Settings & Admin Tools">
+              ⚙️ Group Settings
+            </button>
+            <button class="btn-secondary btn-sm" id="btnCopyRoomId" title="Copy Room LAN IDs">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+              </svg>
+              Share Channel
+            </button>
+          </div>
+        </div>
+
+        <!-- PINNED MESSAGES BANNER -->
+        <div id="pinnedMessageBar" class="pinned-message-bar" style="display: none;">
+          <span class="pinned-icon">📌</span>
+          <span id="pinnedMessageText" class="pinned-text">Pinned message text...</span>
+        </div>
+
+        <!-- MESSAGES FEED AREA -->
+        <div class="messages-container" id="messagesContainer">
+          <!-- Messages dynamically rendered here -->
+        </div>
+
+        <!-- TYPING INDICATOR BANNER -->
+        <div class="typing-indicator-bar" id="typingIndicator">
+          <div class="typing-dots">
+            <span></span><span></span><span></span>
+          </div>
+          <span id="typingText">Someone is typing...</span>
+        </div>
+
+        <!-- ATTACHMENT PREVIEW DRAWER -->
+        <div class="attachment-preview-drawer" id="attachmentDrawer" style="display: none;">
+          <div class="preview-content">
+            <div class="preview-file-icon" id="previewIcon">📄</div>
+            <div class="preview-file-details">
+              <span class="preview-file-name" id="previewFileName">filename.ext</span>
+              <span class="preview-file-size" id="previewFileSize">0 KB</span>
+            </div>
+            <button class="btn-icon text-danger" id="btnRemoveAttachment" title="Remove attachment">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- MESSAGE COMPOSER INPUT -->
+        <div class="chat-input-area">
+          <form id="messageForm" class="message-form">
+            <!-- Hidden file input supporting ALL file types -->
+            <input type="file" id="fileInput" style="display: none;" />
+
+            <button type="button" class="btn-icon btn-attach" id="btnAttachFile" title="Attach image or any file format">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+              </svg>
+            </button>
+
+            <button type="button" class="btn-icon" id="btnVoiceRecord" title="Record Voice Note">
+              🎤
+            </button>
+
+            <input 
+              type="text" 
+              id="messageInput" 
+              placeholder="Type a message or drop files here..." 
+              autocomplete="off" 
+            />
+
+            <button type="submit" class="btn-send" id="btnSendMessage" title="Send message">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              </svg>
+            </button>
+          </form>
+        </div>
+
+      </main>
+    </div>
+
+    <!-- DEVICE SELECTION MODAL -->
+    <div class="modal-backdrop" id="deviceModal" style="display: flex;">
+      <div class="modal-card device-modal-card">
+        <div class="modal-header">
+          <div class="modal-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+              <line x1="12" y1="18" x2="12.01" y2="18"></line>
+            </svg>
+          </div>
+          <h2>Select Your Device</h2>
+          <p>Choose your layout mode to optimize your experience for phone or laptop</p>
+        </div>
+
+        <div class="device-selection-grid">
+          <button type="button" class="device-option-card" id="btnSelectPhone">
+            <div class="device-option-icon">📱</div>
+            <div class="device-option-title">Phone</div>
+            <div class="device-option-desc">Elevated chat input bar above browser navigation controls</div>
+          </button>
+          
+          <button type="button" class="device-option-card" id="btnSelectLaptop">
+            <div class="device-option-icon">💻</div>
+            <div class="device-option-title">Laptop / Desktop</div>
+            <div class="device-option-desc">Full desktop layout with expanded sidebars & viewports</div>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- AUTHENTICATION (REGISTER / LOGIN) MODAL -->
+    <div class="modal-backdrop" id="authModal" style="display: none;">
+      <div class="modal-card auth-modal-card">
+        <div class="modal-header">
+          <div class="modal-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+          </div>
+          <h2>LAN Mesh Chat</h2>
+          <p>Secure & Persistent Local Network Messaging</p>
+        </div>
+
+        <!-- AUTH TABS -->
+        <div class="auth-tabs">
+          <button type="button" class="auth-tab active" id="tabLoginBtn">Login</button>
+          <button type="button" class="auth-tab" id="tabRegisterBtn">Register</button>
+        </div>
+        
+        <!-- LOGIN FORM -->
+        <form id="formLogin" class="modal-body auth-form active" style="display: flex;">
+          <div class="form-group">
+            <label for="loginUsername">Username</label>
+            <input 
+              type="text" 
+              id="loginUsername" 
+              placeholder="Enter your username" 
+              maxlength="24" 
+              required 
+              autocomplete="username"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="loginPassword">Password</label>
+            <input 
+              type="password" 
+              id="loginPassword" 
+              placeholder="Enter your password" 
+              required 
+              autocomplete="current-password"
+            />
+          </div>
+
+          <div class="modal-actions">
+            <button type="submit" class="btn-primary btn-block btn-lg">Login to Account</button>
+          </div>
+        </form>
+
+        <!-- REGISTER FORM -->
+        <form id="formRegister" class="modal-body auth-form" style="display: none;">
+          <div class="form-group">
+            <label for="regUsername">Choose Username</label>
+            <input 
+              type="text" 
+              id="regUsername" 
+              placeholder="e.g. Alex, Engineer_1, Admin" 
+              maxlength="24" 
+              required 
+              autocomplete="username"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="regPassword">Set Password</label>
+            <input 
+              type="password" 
+              id="regPassword" 
+              placeholder="Minimum 4 characters" 
+              required 
+              autocomplete="new-password"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="regLanId">Optional Preferred LAN ID</label>
+            <input 
+              type="text" 
+              id="regLanId" 
+              placeholder="e.g., LAN0001 (Optional)" 
+              pattern="^LAN\d{4}$" 
+              title="Must be in format LAN0001, LAN0002, etc." 
+            />
+            <span class="field-hint">Leave blank for automatic sequential ID assignment.</span>
+          </div>
+
+          <div class="modal-actions">
+            <button type="submit" class="btn-primary btn-block btn-lg">Create Account & Join</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- PROFILE EDIT MODAL -->
+    <div class="modal-backdrop" id="profileEditModal" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div class="modal-icon">✏️</div>
+          <h2>Edit User Profile</h2>
+          <p>Update your display name, LAN ID, and password</p>
+        </div>
+        <form id="formEditProfile" class="modal-body">
+          <div class="form-group">
+            <label for="editDisplayName">Display Name</label>
+            <input type="text" id="editDisplayName" maxlength="24" required />
+          </div>
+          <div class="form-group">
+            <label for="editLanId">LAN ID</label>
+            <input type="text" id="editLanId" pattern="^LAN\d{4}$" placeholder="e.g. LAN0001" required />
+          </div>
+          <div class="form-group">
+            <label for="editPassword">New Password (Leave blank to keep unchanged)</label>
+            <input type="password" id="editPassword" placeholder="••••••••" />
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn-secondary" id="btnCloseProfileModal">Cancel</button>
+            <button type="submit" class="btn-primary">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- CREATE GROUP MODAL -->
+    <div class="modal-backdrop" id="createGroupModal" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div class="modal-icon">👥</div>
+          <h2>Create New Group</h2>
+          <p>Select LAN members and customize group preferences</p>
+        </div>
+        <form id="formCreateGroupModal" class="modal-body">
+          <div class="form-group">
+            <label for="modalGroupName">Group Name</label>
+            <input type="text" id="modalGroupName" placeholder="e.g. Engineering Team" required />
+          </div>
+          <div class="form-group">
+            <label>Select Members</label>
+            <div id="groupUserPicker" class="user-picker-container"></div>
+          </div>
+          <div class="form-group">
+            <label for="modalDisallowedFiles">Disallowed File Extensions (comma separated)</label>
+            <input type="text" id="modalDisallowedFiles" placeholder="e.g. exe, bat, sh, zip" />
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn-secondary" id="btnCloseCreateGroupModal">Cancel</button>
+            <button type="submit" class="btn-primary">Create Group</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- GROUP SETTINGS MODAL -->
+    <div class="modal-backdrop" id="groupSettingsModal" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div class="modal-icon">⚙️</div>
+          <h2>Group Settings</h2>
+          <p>Manage group members, admin permissions, and file restrictions</p>
+        </div>
+        <div class="modal-body">
+          <form id="formRenameGroup" class="form-inline-group" style="margin-bottom: 15px;">
+            <input type="text" id="settingsGroupName" placeholder="Group Name" required />
+            <button type="submit" class="btn-primary btn-sm">Rename</button>
+          </form>
+
+          <form id="formAddGroupMembers" class="form-inline-group" style="margin-bottom: 15px;">
+            <input type="text" id="inputAddMemberLanId" placeholder="Add Member LAN ID (e.g. LAN0002)" required />
+            <button type="submit" class="btn-secondary btn-sm">+ Add</button>
+          </form>
+
+          <div class="form-group">
+            <label>Members & Permissions</label>
+            <ul id="settingsMemberList" class="settings-member-list"></ul>
+          </div>
+
+          <form id="formGroupRestrictions" class="form-group" style="margin-top: 15px;">
+            <label for="settingsDisallowedFiles">Disallowed File Extensions</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="settingsDisallowedFiles" placeholder="e.g. exe, bat, zip" />
+              <button type="submit" class="btn-secondary btn-sm">Update Restrictions</button>
+            </div>
+          </form>
+
+          <div id="groupDeleteContainer" style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 15px; display: none;">
+            <button type="button" class="btn-primary text-danger btn-block" id="btnDeleteGroup" style="background-color: #ef4444; color: #fff;">
+              🗑️ Delete Group
+            </button>
+          </div>
+
+          <div class="modal-actions" style="margin-top: 20px;">
+            <button type="button" class="btn-secondary btn-block" id="btnCloseGroupSettingsModal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOCALHOST SUPER ADMIN PANEL MODAL -->
+    <div class="modal-backdrop" id="adminModal" style="display: none;">
+      <div class="modal-card admin-modal-card" style="max-width: 750px; width: 90%;">
+        <div class="modal-header">
+          <div class="modal-icon text-danger" style="background-color: rgba(239, 68, 68, 0.15);">⚙️</div>
+          <h2>Localhost Super Admin Dashboard</h2>
+          <p>Complete control over users, LAN IDs, groups, bans, and files</p>
+        </div>
+
+        <div class="admin-tabs" style="display: flex; gap: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 15px; overflow-x: auto;">
+          <button type="button" class="auth-tab active" id="adminTabHealth">Health & Sockets</button>
+          <button type="button" class="auth-tab" id="adminTabUsers">Users & Accounts</button>
+          <button type="button" class="auth-tab" id="adminTabBans">Bans & Restrictions</button>
+          <button type="button" class="auth-tab" id="adminTabGroups">Groups Override</button>
+          <button type="button" class="auth-tab" id="adminTabAudit">Audit Logs</button>
+          <button type="button" class="auth-tab" id="adminTabData">Data & Backup</button>
+        </div>
+        </div>
+
+        <!-- ADMIN TAB: HEALTH & SOCKETS -->
+        <div id="adminSectionHealth" class="admin-tab-section active">
+          <div class="admin-health-grid" id="adminHealthGrid" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; margin-bottom:15px;"></div>
+          <h4>Live Active Sockets Monitor</h4>
+          <div id="adminSocketTable" class="admin-table-container"></div>
+        </div>
+
+        <!-- ADMIN TAB: USERS -->
+        <div id="adminSectionUsers" class="admin-tab-section" style="display:none;">
+          <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+            <input type="text" id="adminUserSearch" placeholder="Search user by Name or LAN ID..." style="flex:1; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color);" />
+            <button type="button" class="btn-secondary btn-sm" id="btnAdminRefresh">Refresh List</button>
+          </div>
+          <div id="adminUserTable" class="admin-table-container"></div>
+        </div>
+
+        <!-- ADMIN TAB: BANS -->
+        <div id="adminSectionBans" class="admin-tab-section" style="display: none;">
+          <form id="formAdminBan" style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <input type="text" id="adminBanLanId" placeholder="Ban LAN ID (e.g. LAN0005)" />
+            <input type="text" id="adminBanIp" placeholder="Ban IP Address" />
+            <button type="submit" class="btn-primary text-danger" style="background-color: #ef4444; color:#fff;">Ban Target</button>
+          </form>
+          <div id="adminBannedList"></div>
+        </div>
+
+        <!-- ADMIN TAB: GROUPS -->
+        <div id="adminSectionGroups" class="admin-tab-section" style="display: none;">
+          <div id="adminGroupsList" class="admin-table-container"></div>
+        </div>
+
+        <!-- ADMIN TAB: AUDIT LOGS -->
+        <div id="adminSectionAudit" class="admin-tab-section" style="display: none;">
+          <div id="adminAuditList" class="admin-table-container"></div>
+        </div>
+
+        <!-- ADMIN TAB: DATA -->
+        <div id="adminSectionData" class="admin-tab-section" style="display: none;">
+          <div class="admin-actions-list">
+            <div class="admin-action-item">
+              <div class="admin-action-info">
+                <h4>Export Complete Backup</h4>
+                <p>Download all users, groups, and chats as a single JSON file</p>
+              </div>
+              <button type="button" class="btn-secondary btn-sm" id="btnAdminExport">📥 Export JSON</button>
+            </div>
+
+            <div class="admin-action-item">
+              <div class="admin-action-info">
+                <h4>Import Server Data</h4>
+                <p>Upload a JSON backup file to restore or load server state</p>
+              </div>
+              <label class="btn-secondary btn-sm" for="adminImportFile" style="cursor: pointer;">📤 Import JSON</label>
+              <input type="file" id="adminImportFile" accept=".json" style="display: none;" />
+            </div>
+
+            <div class="admin-action-item danger-zone">
+              <div class="admin-action-info">
+                <h4 class="text-danger">Reset & Delete All Accounts</h4>
+                <p>Permanently delete all registered accounts, active groups, and chat history</p>
+              </div>
+              <button type="button" class="btn-primary btn-sm text-danger" id="btnAdminReset" style="background-color: #ef4444; color: #fff;">🗑️ Reset All</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-actions" style="margin-top: 20px;">
+          <button type="button" class="btn-secondary btn-block" id="btnCloseAdminModal">Close Panel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- IMAGE LIGHTBOX MODAL -->
+    <div class="modal-backdrop" id="imageModal" style="display: none;">
+      <div class="lightbox-content">
+        <button class="btn-icon lightbox-close" id="btnCloseLightbox">&times;</button>
+        <img id="lightboxImage" src="" alt="Enlarged upload preview" />
+        <div class="lightbox-footer">
+          <span id="lightboxCaption">Filename</span>
+          <a id="lightboxDownloadBtn" href="#" class="btn-secondary btn-sm" download>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Download File
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- NOTIFICATION TOAST -->
+    <div id="toastContainer" class="toast-container"></div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

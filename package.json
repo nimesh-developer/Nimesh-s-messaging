@@ -1,0 +1,12 @@
+{
+  "name": "app",
+  "version": "1.0.0",
+  "description": "LAN Mesh Chat",
+  "main": "server.py",
+  "scripts": {
+    "test": "python3 -m unittest discover -s test -p 'test_*.py'"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
