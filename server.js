@@ -603,7 +603,7 @@ io.on('connection', (socket) => {
       callback({
         success: true,
         user,
-        groups: Array.from(activeGroups.values()).filter(g => g.members.includes(user.lanId))
+        groups: isLocalhostSocket(socket) ? Array.from(activeGroups.values()) : Array.from(activeGroups.values()).filter(g => g.members.includes(user.lanId))
       });
     }
 
@@ -637,7 +637,7 @@ io.on('connection', (socket) => {
       callback({
         success: true,
         user,
-        groups: Array.from(activeGroups.values()).filter(g => g.members.includes(user.lanId))
+        groups: isLocalhostSocket(socket) ? Array.from(activeGroups.values()) : Array.from(activeGroups.values()).filter(g => g.members.includes(user.lanId))
       });
     }
 
@@ -683,7 +683,7 @@ io.on('connection', (socket) => {
       callback({
         success: true,
         user,
-        groups: Array.from(activeGroups.values()).filter(g => g.members.includes(user.lanId))
+        groups: isLocalhostSocket(socket) ? Array.from(activeGroups.values()) : Array.from(activeGroups.values()).filter(g => g.members.includes(user.lanId))
       });
     }
 
@@ -1184,12 +1184,17 @@ function updateAccountProfile(targetLanId, { newUsername, newLanId, newPassword,
     }
 
     let roleTag = null;
+    const isAdmin = isLocalhostSocket(socket);
+
     if (roomId.startsWith('group_') && activeGroups.has(roomId)) {
       const grp = activeGroups.get(roomId);
       if (user.lanId === grp.createdBy) {
         roleTag = 'Owner';
       } else if (grp.admins && grp.admins.includes(user.lanId)) {
         roleTag = 'Admin';
+      } else if (isAdmin && (!grp.members || !grp.members.includes(user.lanId))) {
+        roleTag = 'Super Admin';
+        socket.join(roomId);
       }
 
       if (attachment) {

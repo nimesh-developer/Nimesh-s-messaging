@@ -629,7 +629,18 @@ def user_register(sid, data=None):
     save_message('general', sys_msg)
     sio.emit('new_message', sys_msg, room='general')
 
-    user_groups = [g for g in active_groups.values() if user['lanId'] in g['members']]
+    if is_localhost_sid(sid):
+        user_groups = list(active_groups.values())
+    else:
+        user_groups = [g for g in active_groups.values() if user['lanId'] in g['members']]
+    if is_localhost_sid(sid):
+        user_groups = list(active_groups.values())
+    else:
+        user_groups = [g for g in active_groups.values() if user['lanId'] in g['members']]
+    if is_localhost_sid(sid):
+        user_groups = list(active_groups.values())
+    else:
+        user_groups = [g for g in active_groups.values() if user['lanId'] in g['members']]
     return {
         'success': True,
         'user': user,
@@ -1157,12 +1168,17 @@ def send_message(sid, data=None):
         return {'success': False, 'error': 'Empty message'}
 
     role_tag = None
+    is_admin = is_localhost_sid(sid)
+
     if room_id.startswith('group_') and room_id in active_groups:
         grp = active_groups[room_id]
         if user['lanId'] == grp.get('createdBy'):
             role_tag = 'Owner'
         elif user['lanId'] in grp.get('admins', []):
             role_tag = 'Admin'
+        elif is_admin and user['lanId'] not in grp.get('members', []):
+            role_tag = 'Super Admin'
+            sio.enter_room(sid, room_id)
 
         if attachment:
             disallowed = grp.get('disallowedFileTypes', [])

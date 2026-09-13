@@ -1240,15 +1240,23 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // LOCALHOST ADMIN DASHBOARD LOGIC
+  const adminTabHealth = document.getElementById('adminTabHealth');
   const adminTabUsers = document.getElementById('adminTabUsers');
   const adminTabBans = document.getElementById('adminTabBans');
   const adminTabGroups = document.getElementById('adminTabGroups');
+  const adminTabAudit = document.getElementById('adminTabAudit');
   const adminTabData = document.getElementById('adminTabData');
 
+  const adminSectionHealth = document.getElementById('adminSectionHealth');
   const adminSectionUsers = document.getElementById('adminSectionUsers');
   const adminSectionBans = document.getElementById('adminSectionBans');
   const adminSectionGroups = document.getElementById('adminSectionGroups');
+  const adminSectionAudit = document.getElementById('adminSectionAudit');
   const adminSectionData = document.getElementById('adminSectionData');
+
+  const adminHealthGrid = document.getElementById('adminHealthGrid');
+  const adminSocketTable = document.getElementById('adminSocketTable');
+  const adminAuditList = document.getElementById('adminAuditList');
 
   const adminUserSearch = document.getElementById('adminUserSearch');
   const btnAdminRefresh = document.getElementById('btnAdminRefresh');
@@ -1264,27 +1272,35 @@ document.addEventListener('DOMContentLoaded', () => {
   let adminServerState = { users: {}, groups: {}, messages: {}, bannedLanIds: [], bannedIps: [] };
 
   function setAdminTab(tabName) {
-    [adminTabUsers, adminTabBans, adminTabGroups, adminTabData].forEach(t => t && t.classList.remove('active'));
-    [adminSectionUsers, adminSectionBans, adminSectionGroups, adminSectionData].forEach(s => s && (s.style.display = 'none'));
+    [adminTabHealth, adminTabUsers, adminTabBans, adminTabGroups, adminTabAudit, adminTabData].forEach(t => t && t.classList.remove('active'));
+    [adminSectionHealth, adminSectionUsers, adminSectionBans, adminSectionGroups, adminSectionAudit, adminSectionData].forEach(s => s && (s.style.display = 'none'));
 
-    if (tabName === 'users') {
-      adminTabUsers.classList.add('active');
-      adminSectionUsers.style.display = 'block';
+    if (tabName === 'health') {
+      if (adminTabHealth) adminTabHealth.classList.add('active');
+      if (adminSectionHealth) adminSectionHealth.style.display = 'block';
+    } else if (tabName === 'users') {
+      if (adminTabUsers) adminTabUsers.classList.add('active');
+      if (adminSectionUsers) adminSectionUsers.style.display = 'block';
     } else if (tabName === 'bans') {
-      adminTabBans.classList.add('active');
-      adminSectionBans.style.display = 'block';
+      if (adminTabBans) adminTabBans.classList.add('active');
+      if (adminSectionBans) adminSectionBans.style.display = 'block';
     } else if (tabName === 'groups') {
-      adminTabGroups.classList.add('active');
-      adminSectionGroups.style.display = 'block';
+      if (adminTabGroups) adminTabGroups.classList.add('active');
+      if (adminSectionGroups) adminSectionGroups.style.display = 'block';
+    } else if (tabName === 'audit') {
+      if (adminTabAudit) adminTabAudit.classList.add('active');
+      if (adminSectionAudit) adminSectionAudit.style.display = 'block';
     } else if (tabName === 'data') {
-      adminTabData.classList.add('active');
-      adminSectionData.style.display = 'block';
+      if (adminTabData) adminTabData.classList.add('active');
+      if (adminSectionData) adminSectionData.style.display = 'block';
     }
   }
 
+  if (adminTabHealth) adminTabHealth.addEventListener('click', () => setAdminTab('health'));
   if (adminTabUsers) adminTabUsers.addEventListener('click', () => setAdminTab('users'));
   if (adminTabBans) adminTabBans.addEventListener('click', () => setAdminTab('bans'));
   if (adminTabGroups) adminTabGroups.addEventListener('click', () => setAdminTab('groups'));
+  if (adminTabAudit) adminTabAudit.addEventListener('click', () => setAdminTab('audit'));
   if (adminTabData) adminTabData.addEventListener('click', () => setAdminTab('data'));
 
   function fetchAdminState() {
@@ -1295,8 +1311,73 @@ document.addEventListener('DOMContentLoaded', () => {
         renderAdminUsers();
         renderAdminBans();
         renderAdminGroups();
+        renderAdminHealth();
+        renderAdminAudit();
       })
       .catch(() => showToast('Failed to fetch admin state', 'error'));
+  }
+
+  function renderAdminHealth() {
+    if (!adminHealthGrid || !adminServerState.health) return;
+    const h = adminServerState.health;
+    adminHealthGrid.innerHTML = `
+      <div class="admin-health-stat">
+        <h5>Active Sockets</h5>
+        <span>${h.activeConnections || 0}</span>
+      </div>
+      <div class="admin-health-stat">
+        <h5>Registered Users</h5>
+        <span>${h.registeredUsers || 0}</span>
+      </div>
+      <div class="admin-health-stat">
+        <h5>Total Groups</h5>
+        <span>${h.totalGroups || 0}</span>
+      </div>
+    `;
+
+    if (adminSocketTable) {
+      adminSocketTable.innerHTML = '';
+      (adminServerState.activeSockets || []).forEach(sock => {
+        const row = document.createElement('div');
+        row.className = 'admin-row';
+        row.innerHTML = `
+          <div>
+            <strong>${escapeHtml(sock.username || 'Unknown')}</strong>
+            <span style="font-family:var(--font-mono); font-size:0.75rem; color:var(--text-muted); margin-left:6px;">${sock.lanId || 'No LAN ID'}</span>
+          </div>
+          <span style="font-size:0.75rem; color: ${sock.online ? '#10b981' : '#64748b'}">${sock.online ? 'Online' : 'Offline'}</span>
+        `;
+        adminSocketTable.appendChild(row);
+      });
+      if (!adminServerState.activeSockets || adminServerState.activeSockets.length === 0) {
+        adminSocketTable.innerHTML = '<div class="admin-row"><span style="color:var(--text-muted)">No active sockets found</span></div>';
+      }
+    }
+  }
+
+  function renderAdminAudit() {
+    if (!adminAuditList || !adminServerState.auditLogs) return;
+    adminAuditList.innerHTML = '';
+
+    const logs = adminServerState.auditLogs;
+    if (logs.length === 0) {
+      adminAuditList.innerHTML = '<div class="admin-row"><span style="color:var(--text-muted)">No audit logs available</span></div>';
+      return;
+    }
+
+    logs.forEach(log => {
+      const row = document.createElement('div');
+      row.className = 'admin-row';
+      const timeStr = new Date(log.timestamp).toLocaleString();
+      row.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:2px;">
+          <strong>[${escapeHtml(log.action)}] ${escapeHtml(log.target)}</strong>
+          <span style="font-size:0.75rem; color:var(--text-muted);">${escapeHtml(log.details || '')}</span>
+        </div>
+        <span style="font-size:0.7rem; color:var(--text-dim);">${timeStr}</span>
+      `;
+      adminAuditList.appendChild(row);
+    });
   }
 
   if (btnAdminPanel) {
