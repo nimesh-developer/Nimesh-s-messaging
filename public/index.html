@@ -63,10 +63,13 @@
 
       <!-- DEVICE MODE SWITCHER & THEME SWITCHER & CURRENT USER PROFILE & LOGOUT WIDGET -->
       <div class="user-header-actions">
+        <button class="btn-secondary btn-sm" id="btnCustomStatus" title="Set Custom Status">
+          💬 Status
+        </button>
         <button class="btn-secondary btn-sm text-danger" id="btnAdminPanel" style="display: none;" title="Localhost Admin Controls">
           ⚙️ Admin
         </button>
-        <button class="btn-secondary btn-sm" id="btnThemeSwitcher" title="Cycle Themes (Dark, Light, Cyberpunk)">
+        <button class="btn-secondary btn-sm" id="btnThemeSwitcher" title="Cycle Themes (Dark, Light, Cyberpunk, Hacker, Retro)">
           <span id="themeBadgeIcon">🌙</span>
         </button>
         <button class="btn-secondary btn-sm" id="btnChangeDeviceMode" title="Switch Device Mode (Phone / Laptop)">
@@ -240,10 +243,14 @@
               🎤
             </button>
 
+            <button type="button" class="btn-icon" id="btnEmojiPicker" title="Insert Emoji">
+              😊
+            </button>
+
             <input 
               type="text" 
               id="messageInput" 
-              placeholder="Type a message or drop files here..." 
+              placeholder="Type a message or /command or markdown..."
               autocomplete="off" 
             />
 
@@ -479,6 +486,12 @@
             </button>
           </div>
 
+          <div id="groupLeaveContainer" style="margin-top: 10px; display: block;">
+            <button type="button" class="btn-secondary text-danger btn-block" id="btnLeaveGroup">
+              🚪 Leave Group
+            </button>
+          </div>
+
           <div class="modal-actions" style="margin-top: 20px;">
             <button type="button" class="btn-secondary btn-block" id="btnCloseGroupSettingsModal">Close</button>
           </div>
@@ -593,6 +606,11 @@
           </a>
         </div>
       </div>
+    </div>
+
+    <!-- EMOJI PICKER POPUP -->
+    <div id="emojiPickerPopup" class="emoji-picker-popup" style="display: none;">
+      <div class="emoji-grid" id="emojiGrid"></div>
     </div>
 
     <!-- NOTIFICATION TOAST -->

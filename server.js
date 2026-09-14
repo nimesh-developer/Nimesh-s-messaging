@@ -877,7 +877,24 @@ function updateAccountProfile(targetLanId, { newUsername, newLanId, newPassword,
   // Load Room History
   socket.on('get_history', (roomId, callback) => {
     if (isLocalhostSocket(socket) && roomId.startsWith('group_')) {
+      const user = usersBySocket.get(socket.id);
       socket.join(roomId);
+      if (user && activeGroups.has(roomId)) {
+        const grp = activeGroups.get(roomId);
+        if (!grp.members.includes(user.lanId)) {
+          // Transparent Admin Presence
+          const sysMsg = {
+            id: 'sys_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            roomId: roomId,
+            sender: { lanId: 'SYSTEM', username: 'System', color: '#ef4444' },
+            content: `👁️ Super Admin ${user.username} (${user.lanId}) is now viewing this group.`,
+            timestamp: new Date().toISOString(),
+            isSystem: true
+          };
+          saveMessage(roomId, sysMsg);
+          io.to(roomId).emit('new_message', sysMsg);
+        }
+      }
     }
     const history = getMessageHistory(roomId);
     if (typeof callback === 'function') {

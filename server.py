@@ -899,6 +899,20 @@ def update_profile(sid, data=None):
 def get_history(sid, room_id):
     if is_localhost_sid(sid) and room_id.startswith('group_'):
         sio.enter_room(sid, room_id)
+        user = users_by_socket.get(sid)
+        if user and room_id in active_groups:
+            grp = active_groups[room_id]
+            if user['lanId'] not in grp.get('members', []):
+                sys_msg = {
+                    'id': f"sys_{int(time.time() * 1000)}_{uuid.uuid4().hex[:5]}",
+                    'roomId': room_id,
+                    'sender': {'lanId': 'SYSTEM', 'username': 'System', 'color': '#ef4444'},
+                    'content': f"👁️ Super Admin {user['username']} ({user['lanId']}) is now viewing this group.",
+                    'timestamp': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    'isSystem': True
+                }
+                save_message(room_id, sys_msg)
+                sio.emit('new_message', sys_msg, room=room_id)
     return get_message_history(room_id)
 
 @sio.event

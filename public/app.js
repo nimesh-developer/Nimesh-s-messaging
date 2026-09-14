@@ -74,21 +74,40 @@ document.addEventListener('DOMContentLoaded', () => {
   // Theme Switcher Logic
   const btnThemeSwitcher = document.getElementById('btnThemeSwitcher');
   const themeBadgeIcon = document.getElementById('themeBadgeIcon');
-  const themes = ['dark', 'light', 'cyberpunk'];
+  const themes = ['dark', 'light', 'cyberpunk', 'hacker', 'retro'];
   let currentThemeIndex = 0;
 
   if (btnThemeSwitcher) {
     btnThemeSwitcher.addEventListener('click', () => {
       currentThemeIndex = (currentThemeIndex + 1) % themes.length;
       const theme = themes[currentThemeIndex];
-      document.body.classList.remove('theme-dark', 'theme-light', 'theme-cyberpunk');
+      document.body.classList.remove('theme-dark', 'theme-light', 'theme-cyberpunk', 'theme-hacker', 'theme-retro');
       document.body.classList.add(`theme-${theme}`);
 
       if (theme === 'light') themeBadgeIcon.textContent = '☀️';
       else if (theme === 'cyberpunk') themeBadgeIcon.textContent = '🌆';
+      else if (theme === 'hacker') themeBadgeIcon.textContent = '💻';
+      else if (theme === 'retro') themeBadgeIcon.textContent = '📻';
       else themeBadgeIcon.textContent = '🌙';
 
       showToast(`Switched to ${theme.toUpperCase()} theme`);
+    });
+  }
+
+  // Custom Status
+  const btnCustomStatus = document.getElementById('btnCustomStatus');
+  if (btnCustomStatus) {
+    btnCustomStatus.addEventListener('click', () => {
+      if (!currentUser) return;
+      const newStatus = prompt('Set a custom status:', currentUser.customStatus || '');
+      if (newStatus !== null) {
+        socket.emit('set_custom_status', { status: newStatus }, (res) => {
+          if (res.success) {
+            currentUser.customStatus = res.customStatus;
+            showToast('Custom status updated!');
+          }
+        });
+      }
     });
   }
 
@@ -238,6 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const messageInput = document.getElementById('messageInput');
   const fileInput = document.getElementById('fileInput');
   const btnAttachFile = document.getElementById('btnAttachFile');
+  const btnVoiceRecord = document.getElementById('btnVoiceRecord');
 
   const imageModal = document.getElementById('imageModal');
   const lightboxImage = document.getElementById('lightboxImage');
@@ -511,6 +531,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const settingsDisallowedFiles = document.getElementById('settingsDisallowedFiles');
   const groupDeleteContainer = document.getElementById('groupDeleteContainer');
   const btnDeleteGroup = document.getElementById('btnDeleteGroup');
+  const btnLeaveGroup = document.getElementById('btnLeaveGroup');
 
   if (btnGroupSettings) {
     btnGroupSettings.addEventListener('click', openGroupSettings);
@@ -533,6 +554,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const isOwner = currentUser && grp.createdBy === currentUser.lanId;
     if (groupDeleteContainer) {
       groupDeleteContainer.style.display = isOwner ? 'block' : 'none';
+    }
+
+    if (btnLeaveGroup) {
+      btnLeaveGroup.style.display = isOwner ? 'none' : 'block';
     }
 
     renderSettingsMemberList(grp);
@@ -676,6 +701,25 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  if (btnLeaveGroup) {
+    btnLeaveGroup.addEventListener('click', () => {
+      if (confirm('Are you sure you want to leave this group?')) {
+        socket.emit('manage_group', {
+          groupId: activeRoomId,
+          action: 'remove_member',
+          targetLanId: currentUser.lanId
+        }, (res) => {
+          if (res.success) {
+            groupSettingsModal.style.display = 'none';
+            // We get removed via the 'group_removed' event, but we can do it proactively here too
+          } else {
+            showToast(res.error || 'Failed to leave group', 'error');
+          }
+        });
+      }
+    });
+  }
+
   function updateLocalGroup(grp) {
     const idx = userGroups.findIndex(g => g.id === grp.id);
     if (idx !== -1) userGroups[idx] = grp;
@@ -757,15 +801,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Socket Event: New Message Received
   socket.on('new_message', (msg) => {
+    const isOutgoing = currentUser && msg.sender.lanId === currentUser.lanId;
+
     if (msg.roomId === activeRoomId) {
       appendMessage(msg);
       scrollToBottom();
+      if (!isOutgoing && !msg.isSystem) {
+        notificationAudio.play().catch(() => {});
+      }
     } else {
       // Increment unread count
       unreadCounts[msg.roomId] = (unreadCounts[msg.roomId] || 0) + 1;
       updateUnreadBadges();
       if (!msg.isSystem) {
         showToast(`New message from ${msg.sender.username} in ${getRoomDisplayName(msg.roomId)}`);
+        notificationAudio.play().catch(() => {});
+        if (Notification.permission === 'granted') {
+          new Notification('New Message', {
+            body: `${msg.sender.username}: ${msg.content || 'Sent an attachment'}`,
+          });
+        }
       }
     }
   });
@@ -873,6 +928,8 @@ document.addEventListener('DOMContentLoaded', () => {
         li.classList.add('active');
       }
 
+      const customStatusHtml = u.customStatus ? `<span class="user-item-status">💬 ${escapeHtml(u.customStatus)}</span>` : '';
+
       li.innerHTML = `
         <div class="avatar" style="background-color: ${u.color}; width:28px; height:28px; font-size:0.75rem;">
           ${u.username.charAt(0).toUpperCase()}
@@ -880,6 +937,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="user-item-info">
           <span class="user-item-name">${escapeHtml(u.username)} ${isSelf ? '(You)' : ''}</span>
           <span class="user-item-lan">${u.lanId}</span>
+          ${customStatusHtml}
         </div>
         <span class="status-dot ${u.online ? 'pulse' : ''}" style="background-color: ${u.online ? '#10b981' : '#64748b'}"></span>
       `;
@@ -961,6 +1019,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Append Message to UI
+  const notificationAudio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+
   function appendMessage(msg) {
     if (msg.isSystem) {
       const div = document.createElement('div');
@@ -1043,6 +1103,8 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
     }
 
+    const copyBtnHtml = `<button class="msg-delete-btn" onclick="navigator.clipboard.writeText('${escapeHtml(msg.content).replace(/'/g, "\\'")}'); showToast('Message Copied!')" title="Copy Message">📋</button>`;
+
     div.innerHTML = `
       <div class="avatar" style="background-color: ${msg.sender.color}; width:36px; height:36px;">
         ${msg.sender.username.charAt(0).toUpperCase()}
@@ -1053,10 +1115,11 @@ document.addEventListener('DOMContentLoaded', () => {
           ${roleBadgeHtml}
           <span class="msg-lan-tag">${msg.sender.lanId}</span>
           <span class="msg-timestamp">${formattedTime}</span>
+          ${copyBtnHtml}
           ${deleteBtnHtml}
         </div>
         <div class="msg-bubble">
-          ${msg.content ? escapeHtml(msg.content) : ''}
+          ${msg.content ? parseMarkdown(msg.content) : ''}
           ${attachmentHtml}
         </div>
         <div class="msg-reactions"></div>
@@ -1093,9 +1156,30 @@ document.addEventListener('DOMContentLoaded', () => {
   // Message Form Submit
   messageForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    const content = messageInput.value.trim();
+    let content = messageInput.value.trim();
 
     if (!content && !pendingAttachment) return;
+
+    // Handle Slash Commands
+    if (content.startsWith('/')) {
+      const parts = content.split(' ');
+      const command = parts[0].toLowerCase();
+
+      if (command === '/clear') {
+        messagesContainer.innerHTML = '';
+        messageInput.value = '';
+        showToast('Chat cleared locally.');
+        return;
+      } else if (command === '/shrug') {
+        content = parts.slice(1).join(' ') + ' ¯\\_(ツ)_/¯';
+      } else if (command === '/roll') {
+        const result = Math.floor(Math.random() * 100) + 1;
+        content = `*rolls a ${result} (1-100)*`;
+      } else if (command === '/flip') {
+        const result = Math.random() > 0.5 ? 'Heads' : 'Tails';
+        content = `*flips a coin: ${result}*`;
+      }
+    }
 
     socket.emit('send_message', {
       roomId: activeRoomId,
@@ -1127,6 +1211,80 @@ document.addEventListener('DOMContentLoaded', () => {
       isTyping = false;
       socket.emit('typing_stop', { roomId: activeRoomId });
     }
+  }
+
+  // Emoji Picker Logic
+  const btnEmojiPicker = document.getElementById('btnEmojiPicker');
+  const emojiPickerPopup = document.getElementById('emojiPickerPopup');
+  const emojiGrid = document.getElementById('emojiGrid');
+  const commonEmojis = ['😀','😃','😄','😁','😆','😅','😂','🤣','🥲','☺️','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😝','😜','🤪','🤨','🧐','🤓','😎','🥸','🤩','🥳','😏','😒','😞','😔','😟','😕','🙁','☹️','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😥','😓','🤗','🤔','🤭','🤫','🤥','😶','😐','😑','😬','🙄','😯','😦','😧','😮','😲','🥱','😴','🤤','😪','😵','🤐','🥴','🤢','🤮','🤧','😷','🤒','🤕','🤑','🤠','😈','👿','👹','👺','🤡','💩','👻','💀','☠️','👽','👾','🤖','🎃','😺','😸','😹','😻','😼','😽','🙀','😿','😾'];
+
+  if (btnEmojiPicker) {
+    btnEmojiPicker.addEventListener('click', () => {
+      if (emojiPickerPopup.style.display === 'none') {
+        emojiGrid.innerHTML = '';
+        commonEmojis.forEach(emoji => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'emoji-btn';
+          btn.textContent = emoji;
+          btn.addEventListener('click', () => {
+            messageInput.value += emoji;
+            messageInput.focus();
+            emojiPickerPopup.style.display = 'none';
+          });
+          emojiGrid.appendChild(btn);
+        });
+        emojiPickerPopup.style.display = 'block';
+      } else {
+        emojiPickerPopup.style.display = 'none';
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!btnEmojiPicker.contains(e.target) && !emojiPickerPopup.contains(e.target)) {
+        emojiPickerPopup.style.display = 'none';
+      }
+    });
+  }
+
+  // Voice Recording Logic
+  let mediaRecorder;
+  let audioChunks = [];
+
+  if (btnVoiceRecord) {
+    btnVoiceRecord.addEventListener('click', async () => {
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+        btnVoiceRecord.style.color = '';
+        btnVoiceRecord.textContent = '🎤';
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable = e => {
+          if (e.data.size > 0) audioChunks.push(e.data);
+        };
+
+        mediaRecorder.onstop = () => {
+          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+          const file = new File([audioBlob], `VoiceNote_${Date.now()}.webm`, { type: 'audio/webm' });
+          uploadFile(file);
+          stream.getTracks().forEach(t => t.stop());
+        };
+
+        mediaRecorder.start();
+        btnVoiceRecord.style.color = '#ef4444';
+        btnVoiceRecord.textContent = '⏹️';
+        showToast('Recording voice note...');
+      } catch (err) {
+        showToast('Microphone access denied', 'error');
+      }
+    });
   }
 
   // File Upload Handlers
@@ -1612,6 +1770,69 @@ document.addEventListener('DOMContentLoaded', () => {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
   }
+
+  function parseMarkdown(str) {
+    let html = escapeHtml(str);
+
+    // Bold
+    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    // Italics
+    html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    // Code blocks
+    html = html.replace(/`([^`]+)`/g, '<code class="md-code">$1</code>');
+    // Strikethrough
+    html = html.replace(/~~([^~]+)~~/g, '<del>$1</del>');
+    // Blockquote
+    if (html.startsWith('&gt; ')) {
+      html = `<blockquote class="md-quote">${html.substring(5)}</blockquote>`;
+    }
+
+    // Auto-link URLs
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    html = html.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer" class="md-link">$1</a>');
+
+    return html;
+  }
+
+  function downloadChatExport() {
+    socket.emit('get_history', activeRoomId, (history) => {
+      let text = `Chat Export - ${activeRoomName}\n`;
+      text += `Exported on: ${new Date().toLocaleString()}\n`;
+      text += `--------------------------------------------------\n\n`;
+
+      history.forEach(msg => {
+        if (msg.isSystem) {
+          text += `[SYSTEM] ${msg.content}\n`;
+        } else {
+          const time = new Date(msg.timestamp).toLocaleString();
+          const sender = msg.sender.username;
+          let content = msg.content || '';
+          if (msg.attachment) content += ` [Attached File: ${msg.attachment.originalName}]`;
+          text += `[${time}] ${sender}: ${content}\n`;
+        }
+      });
+
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Export_${activeRoomId}_${Date.now()}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Chat history exported successfully!');
+    });
+  }
+
+  // Add Export Button to chat actions
+  const exportBtn = document.createElement('button');
+  exportBtn.className = 'btn-secondary btn-sm';
+  exportBtn.title = 'Export Chat History';
+  exportBtn.textContent = '💾 Export Chat';
+  exportBtn.addEventListener('click', downloadChatExport);
+  const headerActions = document.querySelector('.header-actions');
+  if (headerActions) headerActions.insertBefore(exportBtn, document.getElementById('btnCopyRoomId'));
 
   function formatBytes(bytes) {
     if (bytes === 0) return '0 Bytes';
