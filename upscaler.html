@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Upscaler</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        .container {
+            border: 1px solid #ccc;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .controls {
+            margin: 20px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+        }
+        .output {
+            margin-top: 30px;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+        .output-actions {
+            display: flex;
+            gap: 10px;
+        }
+        img {
+            max-width: 100%;
+            border: 1px solid #eee;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            background-color: #007bff;
+            color: white;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        select, input {
+            padding: 10px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Image Upscaler</h1>
+
+        <div class="controls">
+            <div>
+                <label for="imageUpload">Upload Image:</label>
+                <input type="file" id="imageUpload" accept="image/*">
+            </div>
+
+            <div>
+                <label for="upscaleSize">Select Upscale Size:</label>
+                <select id="upscaleSize">
+                    <option value="2">2x</option>
+                    <option value="4">4x</option>
+                    <option value="6">6x</option>
+                    <option value="8">8x</option>
+                    <option value="10">10x</option>
+                </select>
+            </div>
+
+            <button id="startBtn">Start</button>
+        </div>
+
+        <div class="output" id="outputContainer">
+            <h2>Upscaled Image</h2>
+            <img id="resultImage" alt="Upscaled Preview">
+            <div class="output-actions">
+                <button id="downloadBtn">Download</button>
+                <button id="copyBtn">Copy to Clipboard</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const imageUpload = document.getElementById('imageUpload');
+        const upscaleSize = document.getElementById('upscaleSize');
+        const startBtn = document.getElementById('startBtn');
+        const outputContainer = document.getElementById('outputContainer');
+        const resultImage = document.getElementById('resultImage');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const copyBtn = document.getElementById('copyBtn');
+
+        let upscaledCanvas = null;
+        let originalFileName = 'image';
+        let originalFileType = 'image/png';
+
+        startBtn.addEventListener('click', () => {
+            const file = imageUpload.files[0];
+            if (!file) {
+                alert('Please upload an image first.');
+                return;
+            }
+
+            // Extract file name without extension
+            const lastDot = file.name.lastIndexOf('.');
+            originalFileName = lastDot !== -1 ? file.name.substring(0, lastDot) : file.name;
+            originalFileType = file.type || 'image/png';
+
+            const scale = parseInt(upscaleSize.value, 10);
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+
+                    canvas.width = img.width * scale;
+                    canvas.height = img.height * scale;
+
+                    // Simple upscaling using drawImage
+                    // Disable image smoothing for a sharper upscale (optional, but good for pixel art. let's just leave it default or explicitly set based on typical browser behavior)
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                    upscaledCanvas = canvas;
+
+                    // Show preview
+                    resultImage.src = canvas.toDataURL(originalFileType);
+                    outputContainer.style.display = 'flex';
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        downloadBtn.addEventListener('click', () => {
+            if (!upscaledCanvas) return;
+
+            const scale = parseInt(upscaleSize.value, 10);
+            const link = document.createElement('a');
+            link.download = `${originalFileName}_${scale}x.png`;
+            // always download as png to maintain quality if possible, or use original mime type
+            link.href = upscaledCanvas.toDataURL(originalFileType);
+            link.click();
+        });
+
+        copyBtn.addEventListener('click', async () => {
+            if (!upscaledCanvas) return;
+
+            try {
+                upscaledCanvas.toBlob(async (blob) => {
+                    if (blob) {
+                        const item = new ClipboardItem({ 'image/png': blob });
+                        await navigator.clipboard.write([item]);
+                        alert('Image copied to clipboard!');
+                    } else {
+                        alert('Failed to copy image.');
+                    }
+                }, 'image/png'); // Clipboard API expects image/png
+            } catch (err) {
+                console.error('Error copying to clipboard:', err);
+                alert('Failed to copy image to clipboard. Make sure you are in a secure context (HTTPS).');
+            }
+        });
+    </script>
+</body>
+</html>
