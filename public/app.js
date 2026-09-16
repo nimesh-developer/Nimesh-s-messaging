@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let activeRoomType = 'channel'; // 'channel', 'dm', 'group'
   let allUsers = [];
   let userGroups = [];
-  let pendingAttachment = null;
+  let pendingAttachments = [];
   let typingTimeout = null;
   let isTyping = false;
   let unreadCounts = {};
@@ -248,10 +248,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const typingText = document.getElementById('typingText');
 
   const attachmentDrawer = document.getElementById('attachmentDrawer');
-  const previewIcon = document.getElementById('previewIcon');
-  const previewFileName = document.getElementById('previewFileName');
-  const previewFileSize = document.getElementById('previewFileSize');
-  const btnRemoveAttachment = document.getElementById('btnRemoveAttachment');
+  const previewContentContainer = document.getElementById('previewContentContainer');
+  const btnRemoveAllAttachments = document.getElementById('btnRemoveAllAttachments');
 
   const messageForm = document.getElementById('messageForm');
   const messageInput = document.getElementById('messageInput');
@@ -1038,43 +1036,46 @@ document.addEventListener('DOMContentLoaded', () => {
     const formattedTime = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     let attachmentHtml = '';
-    if (msg.attachment) {
-      const att = msg.attachment;
-      if (att.isImage) {
-        attachmentHtml = `
-          <div class="media-preview-container" onclick="openLightbox('${att.url}', '${escapeHtml(att.originalName)}', '${att.downloadUrl}')">
-            <img src="${att.url}" alt="${escapeHtml(att.originalName)}" loading="lazy" />
-          </div>
-        `;
-      } else if (att.isVideo) {
-        attachmentHtml = `
-          <div class="media-preview-container">
-            <video src="${att.url}" controls></video>
-          </div>
-        `;
-      } else if (att.isAudio) {
-        attachmentHtml = `
-          <div class="media-preview-container">
-            <audio src="${att.url}" controls></audio>
-          </div>
-        `;
-      } else {
-        const fileIcon = getFileIconEmoji(att.mimeType || '');
-        attachmentHtml = `
-          <a class="file-download-card" href="${att.downloadUrl}?name=${encodeURIComponent(att.originalName)}" download>
-            <span class="file-icon">${fileIcon}</span>
-            <div class="file-info-text">
-              <span class="file-name">${escapeHtml(att.originalName)}</span>
-              <span class="file-size">${formatBytes(att.size)} • Click to Download</span>
+    const attachmentsToRender = msg.attachments || (msg.attachment ? [msg.attachment] : []);
+
+    if (attachmentsToRender.length > 0) {
+      attachmentsToRender.forEach(att => {
+        if (att.isImage) {
+          attachmentHtml += `
+            <div class="media-preview-container" onclick="openLightbox('${att.url}', '${escapeHtml(att.originalName)}', '${att.downloadUrl}')">
+              <img src="${att.url}" alt="${escapeHtml(att.originalName)}" loading="lazy" />
             </div>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="7 10 12 15 17 10"></polyline>
-              <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-          </a>
-        `;
-      }
+          `;
+        } else if (att.isVideo) {
+          attachmentHtml += `
+            <div class="media-preview-container">
+              <video src="${att.url}" controls></video>
+            </div>
+          `;
+        } else if (att.isAudio) {
+          attachmentHtml += `
+            <div class="media-preview-container">
+              <audio src="${att.url}" controls></audio>
+            </div>
+          `;
+        } else {
+          const fileIcon = getFileIconEmoji(att.mimeType || '');
+          attachmentHtml += `
+            <a class="file-download-card" href="${att.downloadUrl}?name=${encodeURIComponent(att.originalName)}" download>
+              <span class="file-icon">${fileIcon}</span>
+              <div class="file-info-text">
+                <span class="file-name">${escapeHtml(att.originalName)}</span>
+                <span class="file-size">${formatBytes(att.size)} • Click to Download</span>
+              </div>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+            </a>
+          `;
+        }
+      });
     }
 
     let roleBadgeHtml = '';
@@ -1158,7 +1159,7 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     let content = messageInput.value.trim();
 
-    if (!content && !pendingAttachment) return;
+    if (!content && pendingAttachments.length === 0) return;
 
     // Handle Slash Commands
     if (content.startsWith('/')) {
@@ -1184,11 +1185,11 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.emit('send_message', {
       roomId: activeRoomId,
       content,
-      attachment: pendingAttachment
+      attachments: pendingAttachments
     }, (res) => {
       if (res.success) {
         messageInput.value = '';
-        clearAttachment();
+        clearAttachments();
         stopTyping();
       } else {
         showToast(res.error || 'Failed to send message', 'error');
@@ -1273,7 +1274,7 @@ document.addEventListener('DOMContentLoaded', () => {
         mediaRecorder.onstop = () => {
           const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
           const file = new File([audioBlob], `VoiceNote_${Date.now()}.webm`, { type: 'audio/webm' });
-          uploadFile(file);
+          uploadFiles([file]);
           stream.getTracks().forEach(t => t.stop());
         };
 
@@ -1291,24 +1292,28 @@ document.addEventListener('DOMContentLoaded', () => {
   btnAttachFile.addEventListener('click', () => fileInput.click());
 
   fileInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (file) uploadFile(file);
+    if (e.target.files.length > 0) {
+      uploadFiles(Array.from(e.target.files));
+    }
   });
 
   // Drag and Drop File Support
   window.addEventListener('dragover', (e) => e.preventDefault());
   window.addEventListener('drop', (e) => {
     e.preventDefault();
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      uploadFile(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      uploadFiles(Array.from(e.dataTransfer.files));
     }
   });
 
-  function uploadFile(file) {
+  function uploadFiles(files) {
     const formData = new FormData();
-    formData.append('file', file);
+    files.forEach(file => {
+      formData.append('files', file);
+    });
 
-    showToast(`Uploading ${file.name}...`);
+    const isMultiple = files.length > 1;
+    showToast(`Uploading ${isMultiple ? files.length + ' files' : files[0].name}...`);
 
     fetch('/api/upload', {
       method: 'POST',
@@ -1316,13 +1321,11 @@ document.addEventListener('DOMContentLoaded', () => {
     })
       .then(res => res.json())
       .then(data => {
-        if (data.success) {
-          pendingAttachment = data.file;
-          previewIcon.textContent = getFileIconEmoji(data.file.mimeType);
-          previewFileName.textContent = data.file.originalName;
-          previewFileSize.textContent = formatBytes(data.file.size);
-          attachmentDrawer.style.display = 'block';
-          showToast('File attached successfully!');
+        if (data.success && data.files && data.files.length > 0) {
+          pendingAttachments = pendingAttachments.concat(data.files);
+          renderAttachmentPreviews();
+          attachmentDrawer.style.display = 'flex';
+          showToast(`${data.files.length} file(s) attached successfully!`);
         } else {
           showToast(data.error || 'Upload failed', 'error');
         }
@@ -1332,12 +1335,52 @@ document.addEventListener('DOMContentLoaded', () => {
       });
   }
 
-  btnRemoveAttachment.addEventListener('click', clearAttachment);
+  function renderAttachmentPreviews() {
+    previewContentContainer.innerHTML = '';
 
-  function clearAttachment() {
-    pendingAttachment = null;
+    if (pendingAttachments.length === 0) {
+      attachmentDrawer.style.display = 'none';
+      return;
+    }
+
+    pendingAttachments.forEach((file, index) => {
+      const previewDiv = document.createElement('div');
+      previewDiv.className = 'preview-content';
+
+      const fileIcon = getFileIconEmoji(file.mimeType);
+
+      previewDiv.innerHTML = `
+        <div class="preview-file-icon">${fileIcon}</div>
+        <div class="preview-file-details">
+          <span class="preview-file-name">${escapeHtml(file.originalName)}</span>
+          <span class="preview-file-size">${formatBytes(file.size)}</span>
+        </div>
+        <button class="btn-icon text-danger" type="button" title="Remove attachment" data-index="${index}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      `;
+
+      const removeBtn = previewDiv.querySelector('button');
+      removeBtn.addEventListener('click', () => {
+        pendingAttachments.splice(index, 1);
+        renderAttachmentPreviews();
+      });
+
+      previewContentContainer.appendChild(previewDiv);
+    });
+  }
+
+  if (btnRemoveAllAttachments) {
+    btnRemoveAllAttachments.addEventListener('click', clearAttachments);
+  }
+
+  function clearAttachments() {
+    pendingAttachments = [];
     fileInput.value = '';
-    attachmentDrawer.style.display = 'none';
+    renderAttachmentPreviews();
   }
 
   // Lightbox Modal
@@ -1807,7 +1850,13 @@ document.addEventListener('DOMContentLoaded', () => {
           const time = new Date(msg.timestamp).toLocaleString();
           const sender = msg.sender.username;
           let content = msg.content || '';
-          if (msg.attachment) content += ` [Attached File: ${msg.attachment.originalName}]`;
+          if (msg.attachments && msg.attachments.length > 0) {
+            msg.attachments.forEach(att => {
+              content += ` [Attached File: ${att.originalName}]`;
+            });
+          } else if (msg.attachment) {
+            content += ` [Attached File: ${msg.attachment.originalName}]`;
+          }
           text += `[${time}] ${sender}: ${content}\n`;
         }
       });
