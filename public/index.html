@@ -211,19 +211,18 @@
         </div>
 
         <!-- ATTACHMENT PREVIEW DRAWER -->
-        <div class="attachment-preview-drawer" id="attachmentDrawer" style="display: none;">
-          <div class="preview-content">
-            <div class="preview-file-icon" id="previewIcon">📄</div>
-            <div class="preview-file-details">
-              <span class="preview-file-name" id="previewFileName">filename.ext</span>
-              <span class="preview-file-size" id="previewFileSize">0 KB</span>
-            </div>
-            <button class="btn-icon text-danger" id="btnRemoveAttachment" title="Remove attachment">
+        <div class="attachment-preview-drawer" id="attachmentDrawer" style="display: none; flex-direction: column; gap: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 14px;">
+            <span style="font-size: 0.8rem; font-weight: bold; color: var(--text-muted);">Attachments</span>
+            <button class="btn-icon text-danger" id="btnRemoveAllAttachments" title="Remove all attachments">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="18" y1="6" x2="6" y2="18"></line>
                 <line x1="6" y1="6" x2="18" y2="18"></line>
               </svg>
             </button>
+          </div>
+          <div id="previewContentContainer" style="display: flex; flex-direction: column; gap: 8px;">
+            <!-- Dynamic attachment previews go here -->
           </div>
         </div>
 
@@ -231,7 +230,7 @@
         <div class="chat-input-area">
           <form id="messageForm" class="message-form">
             <!-- Hidden file input supporting ALL file types -->
-            <input type="file" id="fileInput" style="display: none;" />
+            <input type="file" id="fileInput" style="display: none;" multiple />
 
             <button type="button" class="btn-icon btn-attach" id="btnAttachFile" title="Attach image or any file format">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

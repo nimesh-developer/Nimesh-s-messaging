@@ -374,29 +374,31 @@ app.get('/api/lan-info', (req, res) => {
   });
 });
 
-app.post('/api/upload', upload.single('file'), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: 'No file uploaded' });
+app.post('/api/upload', upload.array('files', 50), (req, res) => {
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({ error: 'No files uploaded' });
   }
 
-  const mime = req.file.mimetype || '';
-  const isImage = mime.startsWith('image/');
-  const isVideo = mime.startsWith('video/');
-  const isAudio = mime.startsWith('audio/');
+  const fileInfos = req.files.map(file => {
+    const mime = file.mimetype || '';
+    const isImage = mime.startsWith('image/');
+    const isVideo = mime.startsWith('video/');
+    const isAudio = mime.startsWith('audio/');
 
-  const fileInfo = {
-    originalName: req.file.originalname,
-    filename: req.file.filename,
-    size: req.file.size,
-    mimeType: req.file.mimetype,
-    url: `/uploads/${req.file.filename}`,
-    downloadUrl: `/download/${req.file.filename}`,
-    isImage,
-    isVideo,
-    isAudio
-  };
+    return {
+      originalName: file.originalname,
+      filename: file.filename,
+      size: file.size,
+      mimeType: file.mimetype,
+      url: `/uploads/${file.filename}`,
+      downloadUrl: `/download/${file.filename}`,
+      isImage,
+      isVideo,
+      isAudio
+    };
+  });
 
-  res.json({ success: true, file: fileInfo });
+  res.json({ success: true, files: fileInfos });
 });
 
 // Download endpoint with attachment header for force download
@@ -420,6 +422,13 @@ let bannedLanIds = new Set();
 let bannedIps = new Set();
 let auditLogs = [];
 let lanIdCounter = 1;
+
+// Define activeGroups and other maps BEFORE loadUsers is called so they are initialized.
+// Moving the maps up here:
+const usersBySocket = new Map(); // socketId -> User object
+const usersByLanId = new Map();  // lanId -> User object
+const roomMessages = new Map();   // roomId -> Array of messages
+const activeGroups = new Map();   // groupId -> { id, name, members: Array<lanId>, createdAt }
 
 function logAudit(action, target, details = '') {
   const entry = {
@@ -490,12 +499,6 @@ function saveUsers() {
 }
 
 loadUsers();
-
-// Live user state management
-const usersBySocket = new Map(); // socketId -> User object
-const usersByLanId = new Map();  // lanId -> User object
-const roomMessages = new Map();   // roomId -> Array of messages
-const activeGroups = new Map();   // groupId -> { id, name, members: Array<lanId>, createdAt }
 
 const avatarColors = ['#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#f59e0b', '#06b6d4', '#6366f1', '#14b8a6'];
 
@@ -1194,8 +1197,12 @@ function updateAccountProfile(targetLanId, { newUsername, newLanId, newPassword,
     const user = usersBySocket.get(socket.id);
     if (!user) return;
 
-    const { roomId, content, attachment } = data;
-    if (!roomId || (!content && !attachment)) {
+    const { roomId, content, attachments } = data;
+    // maintain backwards compatibility for 'attachment'
+    let finalAttachments = attachments || [];
+    if (data.attachment) finalAttachments.push(data.attachment);
+
+    if (!roomId || (!content && finalAttachments.length === 0)) {
       if (typeof callback === 'function') callback({ success: false, error: 'Empty message' });
       return;
     }
@@ -1214,18 +1221,20 @@ function updateAccountProfile(targetLanId, { newUsername, newLanId, newPassword,
         socket.join(roomId);
       }
 
-      if (attachment) {
+      if (finalAttachments.length > 0) {
         const disallowed = grp.disallowedFileTypes || [];
         if (disallowed.length > 0) {
-          const filename = (attachment.originalName || attachment.filename || '').toLowerCase();
-          const mime = (attachment.mimeType || '').toLowerCase();
-          for (const dt of disallowed) {
-            const dtClean = dt.trim().toLowerCase();
-            if (dtClean && (filename.endsWith(dtClean) || mime.includes(dtClean))) {
-              if (typeof callback === 'function') {
-                callback({ success: false, error: `File type '${dtClean}' is restricted in this group by Owner/Admin.` });
+          for (const attachment of finalAttachments) {
+            const filename = (attachment.originalName || attachment.filename || '').toLowerCase();
+            const mime = (attachment.mimeType || '').toLowerCase();
+            for (const dt of disallowed) {
+              const dtClean = dt.trim().toLowerCase();
+              if (dtClean && (filename.endsWith(dtClean) || mime.includes(dtClean))) {
+                if (typeof callback === 'function') {
+                  callback({ success: false, error: `File type '${dtClean}' is restricted in this group by Owner/Admin.` });
+                }
+                return;
               }
-              return;
             }
           }
         }
@@ -1242,7 +1251,7 @@ function updateAccountProfile(targetLanId, { newUsername, newLanId, newPassword,
         roleTag
       },
       content: content || '',
-      attachment: attachment || null,
+      attachments: finalAttachments.length > 0 ? finalAttachments : null,
       timestamp: new Date().toISOString(),
       reactions: {}
     };
