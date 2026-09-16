@@ -70,7 +70,7 @@
 
         <div class="controls">
             <div>
-                <label for="imageUpload">Upload Image:</label>
+                <label for="imageUpload">Upload or Paste Image:</label>
                 <input type="file" id="imageUpload" accept="image/*">
             </div>
 
@@ -110,6 +110,23 @@
         let upscaledCanvas = null;
         let originalFileName = 'image';
         let originalFileType = 'image/png';
+
+        // Support pasting images
+        document.addEventListener('paste', (e) => {
+            if (e.clipboardData && e.clipboardData.items) {
+                const items = e.clipboardData.items;
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                        const blob = items[i].getAsFile();
+                        const dataTransfer = new DataTransfer();
+                        dataTransfer.items.add(new File([blob], "pasted_image.png", { type: blob.type }));
+                        imageUpload.files = dataTransfer.files;
+                        alert('Image pasted successfully! Click Start to upscale.');
+                        break;
+                    }
+                }
+            }
+        });
 
         startBtn.addEventListener('click', () => {
             const file = imageUpload.files[0];
